@@ -106,3 +106,72 @@ resource "aws_security_group" "private-sg"{
         cidr_blocks = ["0.0.0.0/0"]
     }
 }
+resource "aws_instance" "public-ec2" {
+    ami="ami-0c2b8ca1dad447f8"
+    instance_type = "t3.micro"
+    subnet_id=aws_subnet.public.id
+    security_groups = [aws_security_group.public-sg.id]
+    associate_public_ip_address = true
+    key_name = "my-key"
+    user_data = <<-EOF
+              #!/bin/bash
+              yum update -y
+              yum install -y nginx
+              systemctl start nginx
+              systemctl enable nginx
+              echo "<h1>Server created using Terraform</h1>" > /usr/share/nginx/html/index.html
+              EOF
+
+    tags={
+        Name="public-ec2"
+
+    } 
+}
+resource "aws_instance" "private-ec2" {
+    ami="ami-0c2b8ca1dad447f8"
+    instance_type = "t3.micro"
+    subnet_id=aws_subnet.private.id
+    security_groups = [aws_security_group.private-sg.id]
+    associate_public_ip_address = false
+    key_name = "my-key"
+    tags={
+        Name="private-ec2"
+
+    }
+  
+}
+resource "aws_lb" "tg" {
+    name               = "my-tg"
+    internal           = false
+    load_balancer_type = "application"
+    security_groups    = [aws_security_group.public-sg.id]
+    subnets            = [aws_subnet.public.id]
+    
+    tags = {
+        Name = "my-tg"
+    }
+}
+
+resource "aws_lb_target_group" "tg" {
+    name       = "my-tg"
+    port       = 80
+    protocol   = "HTTP"
+    vpc_id     = aws_vpc.main.id
+
+    health_check {
+        path = "/"
+        port = "traffic-port"
+    }
+}
+resource "aws_lb_target_group_attachment" "tg1" {
+    target_group_arn = aws_lb.tg.arn
+    target_id        = aws_instance.public-ec2.id
+    port             = 80
+  
+}
+resource "aws_lb_target_group_attachment" "tg2" {
+    target_group_arn = aws_lb.tg.arn
+    target_id        = aws_instance.private-ec2.id
+    port             = 80
+  
+}

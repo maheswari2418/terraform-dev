@@ -412,3 +412,22 @@ resource "aws_subnet" "db_2" {
   cidr_block        = "10.0.6.0/24"
   availability_zone = "ap-south-1b"
 }
+resource "aws_security_group" "bastion_sg" {
+  name   = "bastion-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description = "SSH from my laptop"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["YOUR-IP/32"]   # example: 49.37.x.x/32
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
